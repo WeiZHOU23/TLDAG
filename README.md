@@ -2,7 +2,7 @@
  Learning DAG with EQ-DAG via the topological layers
 # Abstract
 
-we introduce a concept named topological layer of a DAG, which reformulates any DAG into
+We introduce a novel concept named topological layer of a DAG (TLDAG), which reformulates any DAG into
 a unique topological structure. Then, we focus on a special class of directed acyclic graph
 (DAG) models, where the conditional variance of each node given its parents is a quadratic
 function of its conditional mean, and establish the identifiability via topological layers for
