@@ -1,4 +1,3 @@
-
 ###############################################
 ### estimate the order by DirectLINGAM
 ### Copyright in Nicola Gnecco (2019 arXiv)
@@ -59,5 +58,4 @@ DirectLINGAM <- function(dat){
   
   return(DL.result)  
 }
-
 
