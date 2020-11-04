@@ -13,7 +13,8 @@ library(Rcpp)
 library(RcppArmadillo)
 
 
-### calculate kappa ###
+
+############### calculate kappa
 
 agree.twosets <- function(AG.set1, AG.set2, AG.left){
   p.AGtot<-length(AG.left)
@@ -659,7 +660,7 @@ do_one <- function(do.n, do.p, do.N, do.grid.t, do.T, do.graph=c('sparse','dense
   do.truth <- do.dat$DAG
   do.X <- do.dat$X
   
-  
+  # TLDAG
   ptm <- proc.time()
   do.sresult <- EDAG(do.X, do.grid.t, 1, 0, 1, -1/do.N, do.N)
   do.sx <- do.sresult$adj
@@ -719,7 +720,7 @@ do_one <- function(do.n, do.p, do.N, do.grid.t, do.T, do.graph=c('sparse','dense
   
   
   #return(do.result)
-  return(list(DAG=do.truth, EDAG=do.sresult, ODS=sresult, Perf=do.result))
+  return(list(DAG=do.truth, EDAG=do.sresult, Perf=do.result))
 }
 
 
@@ -798,7 +799,18 @@ randomMixedDag <- function(RBD.p, RBD.T, RBD.graph=c('dense','sparse'), RBD.seed
         RBD.numberParents <- length(RBD.done)
       }
       
-      RBD.Parents <- sample(x  = RBD.done, size = RBD.numberParents, replace = FALSE)
+      if(RBD.p == 5){
+        
+        if(length(RBD.numberParents) == 1){
+          RBD.Parents <- RBD.done
+        }else{
+          set.seed(RBD.seed)
+          RBD.Parents <- sample(x  = RBD.done, size = RBD.numberParents, replace = FALSE)
+        }
+      }else{
+        RBD.Parents <- sample(x  = RBD.done, size = RBD.numberParents, replace = FALSE)
+      }
+      
       RBD.child <- RBD.layerNodes[[t]][k]
       RBD.adjaMatrix[RBD.Parents, RBD.child] <- rep(1, RBD.numberParents)
     }
@@ -914,12 +926,6 @@ get_DAGdata <- function(getD.n, getD.p,getD.T, getD.graph=c('sparse','dense'), g
   return(list(X = getD.X, DAG = getD.DAG, layer = getD.layer, edges = getD.edges, XBino = all.IndexBino))
   
 }
-
-
-
-
-
-
 
 
 

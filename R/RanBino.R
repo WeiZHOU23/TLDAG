@@ -14,6 +14,8 @@ library(Rcpp)
 library(RcppArmadillo)
 
 
+
+
 ########################
 ### calculate kappa  ###
 ########################
@@ -146,40 +148,48 @@ layer_A0 <- function(A0.X, A0.beta_1, A0.beta_2){
 ## calculate the ratio for the nodes in the layer A_t ##
 ########################################################
 
+
+layer_At_ratio <- function(Y, X, XBino, At.beta_1, At.beta_2, At.N){
+  
+  #glmfit <- glm(At.XBino[, At.left][, k] ~ At.XBino[, At.Sdone], family = "binomial", control=list(maxit=100))
+  glmfit <- glm(Y ~ XBino, family = "binomial", control=list(maxit=100))
+  glmfit.coef <- as.matrix(glmfit$coefficients)
+  
+  if(any(is.na(glmfit.coef))){
+    na.index <- which(is.na(glmfit.coef) == TRUE)
+    glmfit.coef[na.index] <- 0
+  }
+  
+  glm_St <- cbind(Y, XBino)
+  exp.term <- exp(glm_St %*% glmfit.coef)
+  con.prob <- mean(exp.term^(Y) * (factorial(1)/(factorial(Y)*factorial(1-Y))) / (1 + exp.term)^(Y))
+  con.mean.X <-  con.prob * sum(X)
+  w.Tt <- (At.beta_1 + At.beta_2 * con.mean.X)^(-1)
+  At.Tt <- X * w.Tt
+  At.con.mean <- con.prob * w.Tt * sum(At.Tt)
+  
+  sec.moment <- con.prob * w.Tt * sum(At.Tt^2)
+  At.con.var <- sec.moment - At.con.mean^2
+  
+  At.ratio <- At.con.var / At.con.mean
+  
+  return(At.ratio)
+}
+
+
+
 layer_At <-function(At.layer, At.X, At.XBino, At.beta_1, At.beta_2, At.N){
   At.n1 <- dim(At.XBino)[1]
   At.p <- dim(At.XBino)[2]
   At.Sdone <- unlist(At.layer)
   At.left <- seq(At.p)[-At.Sdone]
   At.n.left <- length(At.left)
-  At.con.mean = At.con.var = c();
-  for (k in 1:At.n.left) {
-    glmfit <- glm(At.XBino[, At.left][, k] ~ At.XBino[, At.Sdone], family = "binomial", control=list(maxit=100))
-    glmfit.coef <- as.matrix(glmfit$coefficients)
-    
-    if(any(is.na(glmfit.coef))){
-      na.index <- which(is.na(glmfit.coef) == TRUE)
-      glmfit.coef[na.index] <- 0
-    }
-    
-    glm_St <- cbind(At.XBino[, At.left][, k], At.XBino[, At.Sdone])
-    exp.term <- exp(glm_St %*% glmfit.coef)
-    con.prob <- mean(exp.term^(At.XBino[, At.left][, k]) * (factorial(1)/(factorial(At.XBino[, At.left][, k])*factorial(1-At.XBino[, At.left][, k])))
-                     / (1 + exp.term)^(At.XBino[, At.left][, k]))
-    con.mean.X <-  con.prob * sum(At.X[, At.left][, k])
-    w.Tt <- (At.beta_1 + At.beta_2 * con.mean.X)^(-1)
-    At.Tt <- At.X[, At.left][, k] * w.Tt
-    At.con.mean[k] <- con.prob * w.Tt * sum(At.Tt)
-    
-    sec.moment <- con.prob * w.Tt * sum(At.Tt^2)
-    At.con.var[k] <- sec.moment - At.con.mean[k]^2
-  }
   
-  At.ratio <- At.con.var / At.con.mean
+  At.ratio <- sapply(1:At.n.left, function(i) layer_At_ratio(At.XBino[, At.left][, i], At.X[, At.left][, i], At.XBino[, At.Sdone], At.beta_1, At.beta_2, At.N))
   At.final.result <- At.ratio / min(At.ratio)
+  
   return(At.final.result) 
 }
-
 
 
 ###################################################
@@ -470,8 +480,9 @@ ODSGLMLasso <- function(X, beta_1, beta_2, N){
 
 
 #############################
-########## Experiment
+####    Experiment
 #############################
+
 
 ## N: Binomial parameter
 do_one <- function(do.n, do.p, do.grid.t, do.T, do.graph=c('dense','sparse'), do.theta1, do.theta2, do.N, do.seed){
@@ -543,6 +554,8 @@ do_one <- function(do.n, do.p, do.grid.t, do.T, do.graph=c('dense','sparse'), do
   do.result[5, 5] <- 2*do.result[3, 5]*do.result[4, 5]/(do.result[3, 5]+do.result[4, 5]+1e-6)  # F1-score 
   do.result[6, 5] <- ifelse(sum(mx), 1 - sum(do.truth*mx)/(sum(mx)+1e-6), 0) #FDR
   
+  
+  
   #return(do.result)
   return(list(DAG=do.truth, EDAG=do.sresult, ODS=sresult, Perf=do.result))
 }
@@ -608,6 +621,7 @@ randomBinomialDag <- function(RBD.p, RBD.T, RBD.graph=c('dense','sparse'), RBD.s
   for (t in 2:RBD.numberLayer) {
     RBD.done <- unlist(RBD.layerNodes)
     RBD.left <- seq(RBD.p)[-RBD.done]
+    
     if(t < RBD.numberLayer){
       set.seed(RBD.seed)
       RBD.layerNodes[[t]] <- sample(RBD.left, RBD.layer[[t]], replace = FALSE)
@@ -623,7 +637,18 @@ randomBinomialDag <- function(RBD.p, RBD.T, RBD.graph=c('dense','sparse'), RBD.s
         RBD.numberParents <- length(RBD.done)
       }
       
-      RBD.Parents <- sample(x  = RBD.done, size = RBD.numberParents, replace = FALSE)
+      if(RBD.p == 5){
+        
+        if(length(RBD.numberParents) == 1){
+          RBD.Parents <- RBD.done
+        }else{
+          set.seed(RBD.seed)
+          RBD.Parents <- sample(x  = RBD.done, size = RBD.numberParents, replace = FALSE)
+        }
+      }else{
+        RBD.Parents <- sample(x  = RBD.done, size = RBD.numberParents, replace = FALSE)
+      }
+      
       RBD.child <- RBD.layerNodes[[t]][k]
       RBD.adjaMatrix[RBD.Parents, RBD.child] <- rep(1, RBD.numberParents)
     }
@@ -685,13 +710,6 @@ get_DAGdata <- function(getD.n, getD.p, getD.T, getD.graph=c('dense',"sparse"), 
   return(list(X = getD.X, DAG = getD.DAG, layer = getD.layer, nodes = getD.nodes, edges = getD.edges))
   
 }
-
-
-
-
-
-
-
 
 
 

@@ -1,5 +1,4 @@
 
-
 ### find the parents of the node 
 potentialParents <- function(x, index){
   parents <- NULL

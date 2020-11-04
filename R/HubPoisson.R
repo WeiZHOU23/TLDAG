@@ -3,6 +3,7 @@
 ##############################################
 
 
+
 source("../GDS/util_DAGs/computeScoreSEMGauss.R")
 source("../GDS/inferDAG/gesWrap.R")
 source("../R/DLiNGAM_p.R")
@@ -18,9 +19,6 @@ library(RcppArmadillo)
 ################################################################################
 ###### To calculate kappa value to determine the tuning parameter \alpha
 ################################################################################
-
-
-## Calculate the Kappa coefficient of Two Sets
 
 agree.twosets <- function(AG.set1, AG.set2, AG.left){
   p.AGtot<-length(AG.left)
@@ -125,6 +123,7 @@ TuningPara <- function(Tune.layer, Tune.X, Tune.grid.t, Tune.alpha, Tune.beta_1,
 
 ####################################################
 ## roots for the layer A_0  
+
 layer_A0 <- function(A0.X, A0.beta_1, A0.beta_2){
   A0.n <- dim(A0.X)[1]
   A0.p <- dim(A0.X)[2]
@@ -135,6 +134,7 @@ layer_A0 <- function(A0.X, A0.beta_1, A0.beta_2){
   A0.Adjustratio <- A0.ratio / min(A0.ratio)
   return(A0.Adjustratio)
 }
+
 
 ########################################################################################
 ## the ratio values for the node in the layer A_t
@@ -271,9 +271,9 @@ EDAG <- function(ED.X, ED.grid.t, ED.beta_1, ED.beta_2){
 
 
 
-###############################################
+####################################################
 ### the ODS algorithm in Park and Raskutti (2018)
-###############################################
+####################################################
 
 ODSGLMLasso <- function(X, beta_1, beta_2){
   ptm<-proc.time()
@@ -413,7 +413,7 @@ ODSGLMLasso <- function(X, beta_1, beta_2){
 
 
 do_one <- function(do.n, do.p, do.grid.t, do.seed){
-  do.result <- matrix(0, 6, 5) ## all metrics
+  do.result <- matrix(0, 6, 6) ## all metrics
   # Data generation
   #dat <- hubgraph(n, p)
   do.dat <- hubgraph(do.n, do.p, do.seed)
@@ -443,42 +443,54 @@ do_one <- function(do.n, do.p, do.grid.t, do.seed){
   do.result[4, 2] <- ifelse(sum(do.truth), sum(do.truth*sx)/(sum(sx)+1e-6), 0) # precision
   do.result[5, 2] <- 2*do.result[3, 2]*do.result[4,2]/(do.result[3, 2]+do.result[4,2]+1e-6)  # F1-score 
   do.result[6, 2] <- ifelse(sum(sx), 1 - sum(do.truth*sx)/(sum(sx)+1e-6), 0) #FDR
-
+  
+  
+  
+  # MRS
+  ptm <- proc.time()
+  Mresult <- MRS(do.X)
+  Mx <- Mresult$adj 
+  do.result[1, 3] <- (proc.time() - ptm)[1]
+  do.result[2, 3] <- hammingDistance(Mx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
+  do.result[3, 3] <- ifelse(sum(do.truth), sum(do.truth*Mx)/sum(do.truth), 0) #recall
+  do.result[4, 3] <- ifelse(sum(do.truth), sum(do.truth*Mx)/(sum(Mx)+1e-6), 0) # precision
+  do.result[5, 3] <- 2*do.result[3, 3]*do.result[4,3]/(do.result[3, 3]+do.result[4,3]+1e-6)  # F1-score 
+  do.result[6, 3] <- ifelse(sum(Mx), 1 - sum(do.truth*Mx)/(sum(Mx)+1e-6), 0) #FDR
   
   
   # DirectLINGAM
   ptm <- proc.time()
   lx <- DirectLINGAM(do.X)
-  do.result[1, 3] <- (proc.time() - ptm)[1]
-  do.result[2, 3] <- hammingDistance(lx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
-  do.result[3, 3] <- ifelse(sum(do.truth), sum(do.truth*lx)/sum(do.truth), 0) #recall
-  do.result[4, 3] <- ifelse(sum(do.truth), sum(do.truth*lx)/(sum(lx)+1e-6), 0) # precision
-  do.result[5, 3] <- 2*do.result[3, 3]*do.result[4,3]/(do.result[3, 3]+do.result[4,3]+1e-6)  # F1-score 
-  do.result[6, 3] <- ifelse(sum(lx), 1 - sum(do.truth*lx)/(sum(lx)+1e-6), 0) #FDR
+  do.result[1, 4] <- (proc.time() - ptm)[1]
+  do.result[2, 4] <- hammingDistance(lx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
+  do.result[3, 4] <- ifelse(sum(do.truth), sum(do.truth*lx)/sum(do.truth), 0) #recall
+  do.result[4, 4] <- ifelse(sum(do.truth), sum(do.truth*lx)/(sum(lx)+1e-6), 0) # precision
+  do.result[5, 4] <- 2*do.result[3, 3]*do.result[4,3]/(do.result[3, 3]+do.result[4,3]+1e-6)  # F1-score 
+  do.result[6, 4] <- ifelse(sum(lx), 1 - sum(do.truth*lx)/(sum(lx)+1e-6), 0) #FDR
   
   
   # GES
   ptm <- proc.time()
   gx.log <- gesWrap(do.X)$Adj
   gx <- matrix(as.numeric(gx.log), do.p, do.p)
-  do.result[1, 4] <- (proc.time() - ptm)[1]
-  do.result[2, 4] <- hammingDistance(gx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
-  do.result[3, 4] <- ifelse(sum(do.truth), sum(do.truth*gx)/sum(do.truth), 0) #recall
-  do.result[4, 4] <- ifelse(sum(do.truth), sum(do.truth*gx)/(sum(gx)+1e-6), 0) # precision
-  do.result[5, 4] <- 2*do.result[3, 4]*do.result[4,4]/(do.result[3, 4]+do.result[4,4]+1e-6)  # F1-score 
-  do.result[6, 4] <- ifelse(sum(gx), 1 - sum(do.truth*gx)/(sum(gx)+1e-6), 0) #FDR
+  do.result[1, 5] <- (proc.time() - ptm)[1]
+  do.result[2, 5] <- hammingDistance(gx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
+  do.result[3, 5] <- ifelse(sum(do.truth), sum(do.truth*gx)/sum(do.truth), 0) #recall
+  do.result[4, 5] <- ifelse(sum(do.truth), sum(do.truth*gx)/(sum(gx)+1e-6), 0) # precision
+  do.result[5, 5] <- 2*do.result[3, 4]*do.result[4,4]/(do.result[3, 4]+do.result[4,4]+1e-6)  # F1-score 
+  do.result[6, 5] <- ifelse(sum(gx), 1 - sum(do.truth*gx)/(sum(gx)+1e-6), 0) #FDR
   
   
   # MMHC
   ptm <- proc.time()
   mmhc.cha <- mmhc(data.frame(do.X))$arcs
   mx <- charaToNume(mmhc.cha, do.p)
-  do.result[1, 5] <- (proc.time() - ptm)[1]
-  do.result[2, 5] <- hammingDistance(mx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
-  do.result[3, 5] <- ifelse(sum(do.truth), sum(do.truth*mx)/sum(do.truth), 0) #recall
-  do.result[4, 5] <- ifelse(sum(do.truth), sum(do.truth*mx)/(sum(mx)+1e-6), 0) # precision
-  do.result[5, 5] <- 2*do.result[3, 5]*do.result[4, 5]/(do.result[3, 5]+do.result[4, 5]+1e-6)  # F1-score 
-  do.result[6, 5] <- ifelse(sum(mx), 1 - sum(do.truth*mx)/(sum(mx)+1e-6), 0) #FDR
+  do.result[1, 6] <- (proc.time() - ptm)[1]
+  do.result[2, 6] <- hammingDistance(mx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
+  do.result[3, 6] <- ifelse(sum(do.truth), sum(do.truth*mx)/sum(do.truth), 0) #recall
+  do.result[4, 6] <- ifelse(sum(do.truth), sum(do.truth*mx)/(sum(mx)+1e-6), 0) # precision
+  do.result[5, 6] <- 2*do.result[3, 5]*do.result[4, 5]/(do.result[3, 5]+do.result[4, 5]+1e-6)  # F1-score 
+  do.result[6, 6] <- ifelse(sum(mx), 1 - sum(do.truth*mx)/(sum(mx)+1e-6), 0) #FDR
   
   #do.result1 <- round(do.result, 2)
   return(do.result)
@@ -533,6 +545,8 @@ hubgraph <- function(n, p, h.seed){
   
   return(list(X = X, truth = truth, TO = ordering))
 }
+
+
 
 
 

@@ -4,6 +4,7 @@
 
 
 
+
 source("..GDS/util_DAGs/computeScoreSEMGauss.R")
 source("../GDS/inferDAG/gesWrap.R")
 source("../R/DLiNGAM_p.R")
@@ -12,6 +13,8 @@ library(bnlearn)
 library(pcalg)
 library(Rcpp)
 library(RcppArmadillo)
+
+
 
 
 
@@ -146,7 +149,7 @@ TuningPara <- function(Tune.layer, Tune.X, Tune.grid.t, Tune.alpha, Tune.beta1.p
 
 
 #############################################################################
-## get the index of each node in the mixed DAG, including four distributions
+## get the index of each node in the mixed DAG, including two distributions
 
 CheckIndex <- function(CI.X, CI.N){
   CI.p <- dim(CI.X)[2]
@@ -185,9 +188,9 @@ unconRatio <- function(uR.X, uR.beta_1, uR.beta_2){
   return(uR.ratio)
 }
 
-###############################
-## roots for the layer A_0  ###
-##############################
+##################################
+## roots for the layer A_0     ###
+##################################
 
 layer_A0 <- function(A0.X, A0.beta1.pois, A0.beta2.pois, A0.beta1.bino, A0.beta2.bino, A0.N){
   A0.n <- dim(A0.X)[1]
@@ -278,7 +281,9 @@ layer_At <-function(At.layer, At.X, At.XBino, At.beta1.pois, At.beta2.pois, At.b
 
 
 
-#######################################################
+#################################################
+###   The proposed method, denoted by TLDAG
+#################################################
 
 EDAG <- function(ED.X, ED.grid.t, ED.beta1.pois, ED.beta2.pois, ED.beta1.bino, ED.beta2.bino, ED.N){
   ptm <- proc.time() 
@@ -667,7 +672,7 @@ do_one <- function(do.n, do.p, do.N, do.sparsity=c("dense","sparse"), do.grid.t,
   do.result <- matrix(0, 6, 5) ##
   # Data generation
   #dat <- hubgraph(n, p)
-  do.dat <- hubMixedgraph(do.n, do.p, do.N, do.sparsity=c("dense","sparse"), do.theta1.pois, do.theta2.pois, do.theta1.pois.beta, do.theta2.pois.beta, do.theta1.bino, do.theta2.bino, do.seed)
+  do.dat <- hubMixedgraph(do.n, do.p, do.N, do.sparsity, do.theta1.pois, do.theta2.pois, do.theta1.pois.beta, do.theta2.pois.beta, do.theta1.bino, do.theta2.bino, do.seed)
   do.truth <- do.dat$truth
   do.X <- do.dat$X
   
@@ -696,39 +701,52 @@ do_one <- function(do.n, do.p, do.N, do.sparsity=c("dense","sparse"), do.grid.t,
   do.result[6, 2] <- ifelse(sum(sx), 1 - sum(do.truth*sx)/(sum(sx)+1e-6), 0) #FDR
   
   
-  #DirectLINGAM
+  # MRS
+  ptm <- proc.time()
+  Mresult <- MRS(do.X)
+  Mx <- Mresult$adj 
+  do.result[1, 3] <- (proc.time() - ptm)[1]
+  do.result[2, 3] <- hammingDistance(Mx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
+  do.result[3, 3] <- ifelse(sum(do.truth), sum(do.truth*Mx)/sum(do.truth), 0) #recall
+  do.result[4, 3] <- ifelse(sum(do.truth), sum(do.truth*Mx)/(sum(Mx)+1e-6), 0) # precision
+  do.result[5, 3] <- 2*do.result[3, 3]*do.result[4,3]/(do.result[3, 3]+do.result[4,3]+1e-6)  # F1-score 
+  do.result[6, 3] <- ifelse(sum(Mx), 1 - sum(do.truth*Mx)/(sum(Mx)+1e-6), 0) #FDR
+  
+  
+  # DirectLINGAM
   ptm <- proc.time()
   lx <- DirectLINGAM(do.X)
-  do.result[1, 3] <- (proc.time() - ptm)[1]
-  do.result[2, 3] <- hammingDistance(lx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
-  do.result[3, 3] <- ifelse(sum(do.truth), sum(do.truth*lx)/sum(do.truth), 0) #recall
-  do.result[4, 3] <- ifelse(sum(do.truth), sum(do.truth*lx)/(sum(lx)+1e-6), 0) # precision
-  do.result[5, 3] <- 2*do.result[3, 3]*do.result[4,3]/(do.result[3, 3]+do.result[4,3]+1e-6)  # F1-score 
-  do.result[6, 3] <- ifelse(sum(lx), 1 - sum(do.truth*lx)/(sum(lx)+1e-6), 0) #FDR
+  do.result[1, 4] <- (proc.time() - ptm)[1]
+  do.result[2, 4] <- hammingDistance(lx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
+  do.result[3, 4] <- ifelse(sum(do.truth), sum(do.truth*lx)/sum(do.truth), 0) #recall
+  do.result[4, 4] <- ifelse(sum(do.truth), sum(do.truth*lx)/(sum(lx)+1e-6), 0) # precision
+  do.result[5, 4] <- 2*do.result[3, 3]*do.result[4,3]/(do.result[3, 3]+do.result[4,3]+1e-6)  # F1-score 
+  do.result[6, 4] <- ifelse(sum(lx), 1 - sum(do.truth*lx)/(sum(lx)+1e-6), 0) #FDR
   
   
   # GES
   ptm <- proc.time()
   gx.log <- gesWrap(do.X)$Adj
   gx <- matrix(as.numeric(gx.log), do.p, do.p)
-  do.result[1, 4] <- (proc.time() - ptm)[1]
-  do.result[2, 4] <- hammingDistance(gx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
-  do.result[3, 4] <- ifelse(sum(do.truth), sum(do.truth*gx)/sum(do.truth), 0) #recall
-  do.result[4, 4] <- ifelse(sum(do.truth), sum(do.truth*gx)/(sum(gx)+1e-6), 0) # precision
-  do.result[5, 4] <- 2*do.result[3, 4]*do.result[4,4]/(do.result[3, 4]+do.result[4,4]+1e-6)  # F1-score 
-  do.result[6, 4] <- ifelse(sum(gx), 1 - sum(do.truth*gx)/(sum(gx)+1e-6), 0) #FDR
+  do.result[1, 5] <- (proc.time() - ptm)[1]
+  do.result[2, 5] <- hammingDistance(gx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
+  do.result[3, 5] <- ifelse(sum(do.truth), sum(do.truth*gx)/sum(do.truth), 0) #recall
+  do.result[4, 5] <- ifelse(sum(do.truth), sum(do.truth*gx)/(sum(gx)+1e-6), 0) # precision
+  do.result[5, 5] <- 2*do.result[3, 4]*do.result[4,4]/(do.result[3, 4]+do.result[4,4]+1e-6)  # F1-score 
+  do.result[6, 5] <- ifelse(sum(gx), 1 - sum(do.truth*gx)/(sum(gx)+1e-6), 0) #FDR
   
   
   # MMHC
   ptm <- proc.time()
   mmhc.cha <- mmhc(data.frame(do.X))$arcs
   mx <- charaToNume(mmhc.cha, do.p)
-  do.result[1, 5] <- (proc.time() - ptm)[1]
-  do.result[2, 5] <- hammingDistance(mx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
-  do.result[3, 5] <- ifelse(sum(do.truth), sum(do.truth*mx)/sum(do.truth), 0) #recall
-  do.result[4, 5] <- ifelse(sum(do.truth), sum(do.truth*mx)/(sum(mx)+1e-6), 0) # precision
-  do.result[5, 5] <- 2*do.result[3, 5]*do.result[4, 5]/(do.result[3, 5]+do.result[4, 5]+1e-6)  # F1-score 
-  do.result[6, 5] <- ifelse(sum(mx), 1 - sum(do.truth*mx)/(sum(mx)+1e-6), 0) #FDR
+  do.result[1, 6] <- (proc.time() - ptm)[1]
+  do.result[2, 6] <- hammingDistance(mx, do.truth)/(do.p*(do.p-1))     ##normalized hammdis
+  do.result[3, 6] <- ifelse(sum(do.truth), sum(do.truth*mx)/sum(do.truth), 0) #recall
+  do.result[4, 6] <- ifelse(sum(do.truth), sum(do.truth*mx)/(sum(mx)+1e-6), 0) # precision
+  do.result[5, 6] <- 2*do.result[3, 5]*do.result[4, 5]/(do.result[3, 5]+do.result[4, 5]+1e-6)  # F1-score 
+  do.result[6, 6] <- ifelse(sum(mx), 1 - sum(do.truth*mx)/(sum(mx)+1e-6), 0) #FDR
+  
   
   return(list(DAG=do.truth, EDAGs=do.sresult$adj, EDAGl=do.sresult$OrderLayer, ODSs=sresult$adj, ODSl=sresult$ordering, Perf=do.result))
 }
@@ -742,7 +760,7 @@ simu_replicate <- function(simr.n, simr.p, simr.N, simr.sparsity=c("dense","spar
   for (i in 1:simr.times) {
     print(i)
     #results[[i]] <- do_one(n = n, p = p, grid.t)
-    simr.results[[i]] <- do_one(simr.n, simr.p, simr.N, simr.sparsity=c("dense","sparse"), simr.grid.t, simr.theta1.pois, simr.theta2.pois, simr.theta1.pois.beta, simr.theta2.pois.beta, simr.theta1.bino, simr.theta2.bino, i)$Perf
+    simr.results[[i]] <- do_one(simr.n, simr.p, simr.N, simr.sparsity, simr.grid.t, simr.theta1.pois, simr.theta2.pois, simr.theta1.pois.beta, simr.theta2.pois.beta, simr.theta1.bino, simr.theta2.bino, i)$Perf
     
   } 
   simr.result  <- Reduce('+', simr.results)
@@ -761,20 +779,16 @@ simu_replicate <- function(simr.n, simr.p, simr.N, simr.sparsity=c("dense","spar
 ## generate data for hub graph (d=1)  
 #####################################
 
-hubMixedgraph <- function(n, p, N, sparsity=c("dense","sparse"),theta1.pois, theta2.pois, theta1.pois.beta, theta2.pois.beta, theta1.bino, theta2.bino, hub.seed){
+
+
+
+hubMixedgraph <- function(n, p, N, sparsity=c("dense","sparse"), theta1.pois, theta2.pois, theta1.pois.beta, theta2.pois.beta, theta1.bino, theta2.bino, hub.seed){
   ordering <- seq(p)
   truth <- matrix(0, p, p)
+  hub.X <- matrix(0, n, p)
   
-  if(sparsity == "dense"){
-    truth[1, 2:p] <- 1
-  }else{
-    set.seed(hub.seed)
-    direct.edge <- sample(p-1, ceiling(p/2)-1, replace = FALSE) + 1  ## randomly choose p/2 edges for hub graph 
-    truth[1, direct.edge] <- 1  
-  }
   
- 
-  
+  ## generate the parameters
   set.seed(hub.seed)
   theta.pois <- runif(p, theta1.pois, theta2.pois)
   set.seed(hub.seed)
@@ -786,11 +800,10 @@ hubMixedgraph <- function(n, p, N, sparsity=c("dense","sparse"),theta1.pois, the
   beta.bino  <- matrix(runif(p*p, theta1.bino, theta2.bino), p ,p)
   
   ## generate the root node as poisson 
-  hub.X <- matrix(0, n, p)
   set.seed(hub.seed)
   hub.index <- sample(2, 1, replace = FALSE)    
   
-  # randomly root nodes
+  # randomly root node as the only parent node
   if(hub.index == 1){
     #poisson root node
     A0.lambda <- exp(theta.pois[1])
@@ -805,27 +818,83 @@ hubMixedgraph <- function(n, p, N, sparsity=c("dense","sparse"),theta1.pois, the
     
   }
   
-  # fix root as pois nodes
-  #A0.lambda <- exp(theta.pois[1])
-  #hub.X[, 1] <- rpois(n, lambda = A0.lambda)
   
-  #generate the sink nodes
-  set.seed(hub.seed)
-  hub.sink.index <- sample(2, p - 1, replace = TRUE)
-  for (j in 2:p) {
-    if(hub.sink.index[j-1] == 1){
-      #poisson sink nodes
-      A1.lambda <- exp(theta.pois[j] + hub.X[, 1] * beta.pois[j, 1])
-      set.seed(hub.seed)
-      hub.X[, j] <- rpois(n, lambda = A1.lambda)
-      
-    }else{
-      #binomial sink nodes
-      g.prob <- exp(theta.bino[j] + beta.bino[j, 1] * hub.X[, 1]) / (1+exp(theta.bino[j] + beta.bino[j, 1] * hub.X[, 1]))
-      set.seed(hub.seed)
-      hub.X[, j] <- rbinom(n, size = N, prob = g.prob)
-      
+  
+  if(sparsity == "dense"){    # for Example 2 the hub graph for mixed DAG
+    truth[1, 2:p] <- 1
+    child <- c(2:p)
+    
+    
+    #generate the sink nodes
+    set.seed(hub.seed)
+    hub.sink.index <- sample(2, p - 1, replace = TRUE)
+    for (j in 2:p) {
+      if(hub.sink.index[j-1] == 1){
+        #poisson sink nodes
+        A1.lambda <- exp(theta.pois[j] + hub.X[, 1] * beta.pois[j, 1])
+        set.seed(hub.seed)
+        hub.X[, j] <- rpois(n, lambda = A1.lambda)
+        
+      }else{
+        #binomial sink nodes
+        g.prob <- exp(theta.bino[j] + beta.bino[j, 1] * hub.X[, 1]) / (1+exp(theta.bino[j] + beta.bino[j, 1] * hub.X[, 1]))
+        set.seed(hub.seed)
+        hub.X[, j] <- rbinom(n, size = N, prob = g.prob)
+        
+      }
     }
+    
+    
+    
+  }else{
+    set.seed(hub.seed)
+    direct.edge <- sample(p-1, ceiling(p/2)-1, replace = FALSE) + 1  ## randomly choose p/2 edges for hub graph 
+    truth[1, direct.edge] <- 1  
+    child <- direct.edge
+    root <- setdiff(c(2:p), intersect(c(2:p), direct.edge))   # other half root nodes except X1
+    direct_length <- length(direct.edge)
+    root_length <- length(root)
+    
+    #generate the half root nodes
+    set.seed(hub.seed)
+    hub.root.index <- sample(2, root_length, replace = TRUE)
+    for (k in 1:root_length) {
+      root.index <- root[k]
+      if(hub.root.index[k] == 1){
+        #poisson root node
+        Ak.lambda <- exp(theta.pois[root.index])
+        set.seed(hub.seed)
+        hub.X[, root.index] <- rpois(n, lambda = Ak.lambda)
+        
+      }else{
+        #binomial root node
+        hub.Ak.prob <- exp(theta.bino[root.index]) / (1 + exp(theta.bino[root.index]))
+        set.seed(hub.seed)
+        hub.X[, root.index]  <- rbinom(n, size = N, prob = hub.Ak.prob)
+        
+      }
+    }
+    
+    #genrate the sink nodes
+    set.seed(hub.seed)
+    hub.sink.index <- sample(2, direct_length, replace = TRUE)
+    for (j in 1:direct_length) {
+      direct.index <- direct.edge[j]
+      if(hub.sink.index[j] == 1){
+        #poisson sink nodes
+        A1.lambda <- exp(theta.pois[direct.index] + hub.X[, 1] * beta.pois[direct.index, 1])
+        set.seed(hub.seed)
+        hub.X[, direct.index] <- rpois(n, lambda = A1.lambda)
+        
+      }else{
+        #binomial sink nodes
+        g.prob <- exp(theta.bino[direct.index] + beta.bino[direct.index, 1] * hub.X[, 1]) / (1+exp(theta.bino[direct.index] + beta.bino[direct.index, 1] * hub.X[, 1]))
+        set.seed(hub.seed)
+        hub.X[, direct.index] <- rbinom(n, size = N, prob = g.prob)
+        
+      }
+    }
+    
   }
   
   #return(list(X = hub.X, truth = truth, TO = ordering, Index = c(hub.index, hub.sink.index)))
@@ -839,7 +908,25 @@ hubMixedgraph <- function(n, p, N, sparsity=c("dense","sparse"),theta1.pois, the
 
 
 
+##### Examples
+grid.t <- 10^(-2 + 0.15*seq(0, 60, by=1))
 
+a1<-simu_replicate(simr.n=200, simr.p=5, simr.N=4, simr.sparsity="sparse", simr.times=50, simr.grid.t=grid.t, simr.theta1.pois=1, simr.theta2.pois=3, 
+                   simr.theta1.pois.beta=0.1, simr.theta2.pois.beta=0.2, simr.theta1.bino=0.1, simr.theta2.bino=0.2)
+a3<-simu_replicate(simr.n=500, simr.p=5, simr.N=4, simr.sparsity="sparse", simr.times=50, simr.grid.t=grid.t, simr.theta1.pois=1, simr.theta2.pois=3, 
+                   simr.theta1.pois.beta=0.1, simr.theta2.pois.beta=0.2, simr.theta1.bino=0.1, simr.theta2.bino=0.2)
+
+
+b1 <- simu_replicate(simr.n=200, simr.p=20, simr.N=4, simr.sparsity="sparse", simr.times=50, simr.grid.t=grid.t, simr.theta1.pois=1, simr.theta2.pois=3, 
+                     simr.theta1.pois.beta=0.1, simr.theta2.pois.beta=0.2, simr.theta1.bino=0.1, simr.theta2.bino=0.2)
+b3 <- simu_replicate(simr.n=500, simr.p=20, simr.N=4, simr.sparsity="sparse", simr.times=50, simr.grid.t=grid.t, simr.theta1.pois=1, simr.theta2.pois=3, 
+                     simr.theta1.pois.beta=0.1, simr.theta2.pois.beta=0.2, simr.theta1.bino=0.1, simr.theta2.bino=0.2)
+
+
+c1 <- simu_replicate(simr.n=200, simr.p=100, simr.N=4, simr.sparsity="sparse", simr.times=50, simr.grid.t=grid.t, simr.theta1.pois=1, simr.theta2.pois=3, 
+                     simr.theta1.pois.beta=0.1, simr.theta2.pois.beta=0.2, simr.theta1.bino=0.1, simr.theta2.bino=0.2)
+c3 <- simu_replicate(simr.n=500, simr.p=100, simr.N=4, simr.sparsity="sparse", simr.times=50, simr.grid.t=grid.t, simr.theta1.pois=1, simr.theta2.pois=3, 
+                     simr.theta1.pois.beta=0.1, simr.theta2.pois.beta=0.2, simr.theta1.bino=0.1, simr.theta2.bino=0.2)
 
 
 
