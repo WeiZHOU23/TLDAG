@@ -1,23 +1,15 @@
 # TLDAG
- Learning DAG with EQ-DAG via the topological layers
+ Learning QVF-DAG via the topological layers
 # Abstract
 
-We introduce a novel concept named topological layer of a DAG (TLDAG), which reformulates any DAG into
-a unique topological structure. Then, we focus on a special class of directed acyclic graph
-(DAG) models, where the conditional variance of each node given its parents is a quadratic
-function of its conditional mean, and establish the identifiability via topological layers for
-this class of DAG models. Note that the interested class of DAG models are fairly large that
-many interesting classes of distributions satisfy this property, including Poisson, Binomial,
-Geometric, Exponential, Gamma and many other distributions. Correspondingly, an efficient
-learning method is proposed, which attempts to identify the topological layers in a hierarchical
-fashion at first and then reconstruct the directed structures in a parallel fashion.
+
+We study a special class of non-Gaussian DAG models, where the conditional variance of each node given its parents is a quadratic function of its conditional mean. Such a class of non-Gaussian DAG models are fairly flexible and admit many popular distributions as special cases, including Poisson, Binomial, Geometric, Exponential, and Gamma. To facilitate learning, we introduce a novel concept of topological layers, and develop an efficient DAG learning algorithm. It first identifies the topological layers in a hierarchical fashion and then reconstructs the directed edges between nodes in different layers, which requires much less computational cost than most existing algorithms in literature.
 
 This repository maintains the code for this project
 
 # The TLDAG package
-The package contains the four cases (hub poisson graph, hub mixed graph for different sparsity, random binomial graph,
-and random mixed graph for different sparsity). Among these methods, the ODS algorithm in Park and Raskutti (2018) is recoded
-here. For GES and MMHC, we refer to the package pcalg and bnlearn. As the Direct LiNGAM is conducted with 
+The package contains the four cases (Poisson hub graph, mixed hub graph, Binomial random graph,
+and (sparse) mixed random graph ). Among these methods, the ODS algorithm in Park and Raskutti (2018) and ODS algorithm in Park and Park (2019) is recoded here. For GES and MMHC, we refer to the package pcalg and bnlearn. As the Direct LiNGAM is conducted with 
 https://github.com/cdt15/lingam with Matlab and coded in Gnecco et al (2019 arXiv) with Rcpp in https://arxiv.org/abs/1908.05097,
 a slightly modifief version is maintained in this repository.
 
