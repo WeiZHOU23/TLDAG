@@ -8,8 +8,8 @@ We study a special class of non-Gaussian DAG models, where the conditional varia
 This repository maintains the code for this project
 
 # The TLDAG package
-The package contains the four cases (Poisson hub graph, mixed hub graph, Binomial random graph,
-and (sparse) mixed random graph ). Among these methods, the ODS algorithm in Park and Raskutti (2018) and ODS algorithm in Park and Park (2019) is recoded here. For GES and MMHC, we refer to the package pcalg and bnlearn. As the Direct LiNGAM is conducted with 
+The package contains the four cases (Poisson hub graph, mixed hub graph, ER random graph,
+and BA random graph ). Among these methods, the ODS algorithm in Park and Raskutti (2018) and ODS algorithm in Park and Park (2019) is recoded here. For GES and MMHC, we refer to the package pcalg and bnlearn. As the Direct LiNGAM is conducted with 
 https://github.com/cdt15/lingam with Matlab and coded in Gnecco et al (2019 arXiv) with Rcpp in https://arxiv.org/abs/1908.05097,
 a slight modification version is maintained in this repository.
 
@@ -17,5 +17,5 @@ a slight modification version is maintained in this repository.
 
 # Simulation Studies
 
-The details of the simulation settings are specified in our paper, also shown in the file "examples" 
-for hub graphs and random graphs with n=\{200,500\} and p=\{5,20,100\} respectively.
+The details of the simulation settings are specified in our paper, and an implementation for a toy example is given in the file "simulation.r".
+Please be careful for installing the required packages before running the code.
