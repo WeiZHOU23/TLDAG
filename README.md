@@ -11,7 +11,7 @@ This repository maintains the code for this project
 The package contains the four cases (Poisson hub graph, mixed hub graph, Binomial random graph,
 and (sparse) mixed random graph ). Among these methods, the ODS algorithm in Park and Raskutti (2018) and ODS algorithm in Park and Park (2019) is recoded here. For GES and MMHC, we refer to the package pcalg and bnlearn. As the Direct LiNGAM is conducted with 
 https://github.com/cdt15/lingam with Matlab and coded in Gnecco et al (2019 arXiv) with Rcpp in https://arxiv.org/abs/1908.05097,
-a slightly modifief version is maintained in this repository.
+a slight modification version is maintained in this repository.
 
 
 
